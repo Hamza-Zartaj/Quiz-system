@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { BookOpenCheck, Loader2, Sparkles } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const inputClass = "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10";
-const labelClass = "grid gap-2 text-sm font-semibold text-slate-700";
+const inputClass = "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-950 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10";
+const labelClass = "grid gap-2 text-sm font-medium text-slate-700";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,10 +62,10 @@ export default function LoginPage() {
           <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-lg shadow-cyan-600/25">
             <BookOpenCheck size={28} />
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
             <Sparkles size={14} /> Teacher workspace
           </div>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Quiz System</h1>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Quiz System</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
             Build, publish, print, and grade quizzes from one focused classroom control room.
           </p>
@@ -75,14 +75,14 @@ export default function LoginPage() {
           <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
             <button
               type="button"
-              className={`rounded-lg px-3 py-2 text-sm font-extrabold transition ${mode === "signin" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === "signin" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               onClick={() => setMode("signin")}
             >
               Login
             </button>
             <button
               type="button"
-              className={`rounded-lg px-3 py-2 text-sm font-extrabold transition ${mode === "signup" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === "signup" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               onClick={() => setMode("signup")}
             >
               Sign up
@@ -119,7 +119,7 @@ export default function LoginPage() {
             </label>
             <button
               type="submit"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-cyan-600/20 transition hover:bg-cyan-700 disabled:opacity-60"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-600/20 transition hover:bg-cyan-700 disabled:opacity-60"
               disabled={loading}
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : null}
@@ -128,7 +128,7 @@ export default function LoginPage() {
           </form>
 
           {message && (
-            <p className="mt-5 rounded-lg border border-cyan-200 bg-cyan-50 px-3.5 py-3 text-sm font-semibold text-cyan-900">
+            <p className="mt-5 rounded-lg border border-cyan-200 bg-cyan-50 px-3.5 py-3 text-sm font-medium text-cyan-900">
               {message}
             </p>
           )}

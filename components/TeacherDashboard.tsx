@@ -6,10 +6,12 @@ import {
   Award,
   BookOpenCheck,
   Brain,
+  CalendarClock,
   Clipboard,
   Download,
   Eye,
   FileSpreadsheet,
+  FileQuestion,
   Loader2,
   LogOut,
   Pencil,
@@ -18,6 +20,8 @@ import {
   Save,
   Search,
   Trash2,
+  Users,
+  Clock3,
   X
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -1222,27 +1226,27 @@ export default function TeacherDashboard({ teacherEmail }: { teacherEmail: strin
           <div className="quiz-list">
             {filtered.map((quiz) => (
               <article key={quiz.id} className="quiz-card">
-                <div className="quiz-card-header">
-                  <div>
-                    <div className="meta-row">
-                      <h2 style={{ margin: 0 }}>{quiz.title}</h2>
+                <div className="quiz-card-layout">
+                  <div className="quiz-card-main">
+                    <div className="quiz-title-row">
+                      <h2 className="quiz-title">{quiz.title}</h2>
                       <span className={statusClass(quiz.status)}>{quiz.status}</span>
                       <span className={`status-pill ${quiz.deliveryMode === "ONLINE" ? "mode-online" : "mode-offline"}`}>
                         {quiz.deliveryMode === "ONLINE" ? "Online" : "Printed/offline"}
                       </span>
                     </div>
-                    <p className="muted" style={{ margin: "8px 0" }}>
+                    <p className="quiz-subtitle">
                       {quiz.subjectName || "General"} {quiz.className ? `- ${quiz.className}` : ""}
                     </p>
-                    <div className="meta-row muted">
-                      <span><Award size={14} /> {quiz.totalMarks} marks</span>
-                      <span>{quiz.durationMinutes} min</span>
-                      <span>{quiz._count?.questions || 0} questions</span>
-                      <span>{quiz._count?.attempts || 0} submissions</span>
-                      <span>{fmtDateTime(quiz.startAt)} to {fmtDateTime(quiz.endAt)}</span>
+                    <div className="quiz-meta-list">
+                      <span><Award size={15} /> {quiz.totalMarks} marks</span>
+                      <span><Clock3 size={15} /> {quiz.durationMinutes} min</span>
+                      <span><FileQuestion size={15} /> {quiz._count?.questions || 0} questions</span>
+                      <span><Users size={15} /> {quiz._count?.attempts || 0} submissions</span>
+                      <span className="quiz-date"><CalendarClock size={15} /> {fmtDateTime(quiz.startAt)} to {fmtDateTime(quiz.endAt)}</span>
                     </div>
                   </div>
-                  <div className="actions-row">
+                  <div className="quiz-card-actions">
                     {quiz.deliveryMode === "ONLINE" && (
                       <button type="button" className="icon-button" onClick={() => copyLink(quiz)} title="Copy public link">
                         <Clipboard size={16} />
