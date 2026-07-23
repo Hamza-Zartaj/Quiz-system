@@ -8,7 +8,7 @@ Standalone teacher-first quiz system built with Next.js and Supabase Postgres.
 - Teacher dashboard for creating quizzes manually, with AI, or from an Excel/CSV sheet.
 - Online quizzes expose a share link. Students open it during the quiz window and enter name, roll number, and class.
 - Offline quizzes can be printed and graded manually from the teacher dashboard.
-- Objective questions auto-grade. Short answers stay pending until the teacher grades them.
+- MCQ and true/false questions auto-grade immediately.
 - Attempts, answers, scores, participant identity, and violation logs are stored against the teacher-owned quiz.
 
 ## Setup
@@ -26,4 +26,4 @@ The importer accepts these columns:
 
 `type`, `questionText`, `option1`, `option2`, `option3`, `option4`, `correctAnswer`, `marks`
 
-Accepted question types are `MCQ`, `TRUE_FALSE` or `TF`, and `SHORT`.
+Accepted question types are `MCQ`, `TRUE_FALSE` or `TF`.

@@ -43,13 +43,6 @@ export async function GET(
 
   const attempts = (data || []) as any[];
   const rows = attempts.map((attempt) => {
-    const manualPending = (attempt.answers || []).filter((answer: any) => (
-      answer.question?.type === "SHORT" &&
-      answer.is_correct === null &&
-      answer.answer !== null &&
-      String(answer.answer || "").trim() !== ""
-    )).length;
-
     return {
       id: attempt.id,
       quizId: attempt.quiz_id,
@@ -62,8 +55,7 @@ export async function GET(
       totalScore: attempt.total_score,
       autoGradedScore: attempt.auto_graded_score,
       manualScore: attempt.manual_score,
-      violations: attempt.violations,
-      manualPending
+      violations: attempt.violations
     };
   });
 

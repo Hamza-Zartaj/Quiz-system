@@ -18,11 +18,6 @@ export async function GET(
     const questions = [...(attempt.quiz?.quiz_questions || [])]
       .sort((left: any, right: any) => Number(left.order_index) - Number(right.order_index));
     const answers = attempt.quiz_answers || [];
-    const manualPending = answers.filter((answer) => {
-      const question = questions.find((item) => item.id === answer.question_id);
-      return question?.type === "SHORT" && answer.is_correct === null && String(answer.answer || "").trim() !== "";
-    }).length;
-
     const allowReview = Boolean(attempt.quiz?.allow_review) &&
       Date.now() > new Date(attempt.quiz?.end_at || "").getTime();
 
@@ -36,8 +31,6 @@ export async function GET(
         totalScore: Number((attempt as any).total_score || 0),
         totalMarks: questions.reduce((sum, question) => sum + Number(question.marks || 0), 0),
         violations: attempt.violations,
-        gradingStatus: manualPending > 0 ? "PENDING_MANUAL" : "FINAL",
-        manualPending,
         allowReview,
         reviewAvailableAt: attempt.quiz?.allow_review ? attempt.quiz.end_at : null,
         questions: allowReview

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type QuestionType = "MCQ" | "TRUE_FALSE" | "SHORT";
+type QuestionType = "MCQ" | "TRUE_FALSE";
 
 type Question = {
   id?: string;
@@ -64,7 +64,6 @@ type AttemptRow = {
   status: string;
   totalScore?: number | null;
   violations: number;
-  manualPending: number;
 };
 
 type AttemptDetail = {
@@ -89,10 +88,25 @@ type AttemptDetail = {
 const emptyQuestion = (type: QuestionType = "MCQ"): Question => ({
   type,
   questionText: "",
-  options: type === "MCQ" ? ["", "", "", ""] : type === "TRUE_FALSE" ? ["True", "False"] : [],
-  correctAnswer: type === "SHORT" ? "" : 0,
+  options: type === "MCQ" ? ["", "", "", ""] : ["True", "False"],
+  correctAnswer: 0,
   marks: 1
 });
+
+const isEmptyQuestion = (question: Question) => (
+  !question.questionText.trim() &&
+  question.type === "MCQ" &&
+  question.options.every((option) => !option.trim()) &&
+  Number(question.correctAnswer) === 0 &&
+  Number(question.marks) === 1
+);
+
+const addQuestionsAfterPlaceholder = (current: Question[], next: Question[]) => {
+  if (next.length === 0) return current;
+  return current.length === 1 && isEmptyQuestion(current[0])
+    ? next
+    : [...current, ...next];
+};
 
 const apiJson = async <T,>(path: string, init: RequestInit = {}) => {
   const extraHeaders = (init.headers || {}) as Record<string, string>;
@@ -139,6 +153,135 @@ const escapeHtml = (value: unknown) => String(value ?? "")
   .replace(/"/g, "&quot;")
   .replace(/'/g, "&#039;");
 
+const filenamePart = (value: string) => value
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/(^-|-$)/g, "") || "quiz";
+
+const normalizePdfText = (value: unknown) => String(value ?? "")
+  .replace(/[^\x20-\x7e]/g, "?")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const escapePdfText = (value: unknown) => normalizePdfText(value)
+  .replace(/\\/g, "\\\\")
+  .replace(/\(/g, "\\(")
+  .replace(/\)/g, "\\)");
+
+const truncatePdfText = (value: unknown, maxLength: number) => {
+  const text = normalizePdfText(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}.` : text;
+};
+
+const buildResultsPdf = (quiz: Quiz, rows: AttemptRow[]) => {
+  const columns = [
+    { label: "Student Name", x: 50, width: 170, max: 26 },
+    { label: "Roll Number", x: 220, width: 95, max: 14 },
+    { label: "Class", x: 315, width: 95, max: 14 },
+    { label: "Total Marks", x: 410, width: 75, max: 10 },
+    { label: "Obtained", x: 485, width: 77, max: 10 }
+  ];
+  const tableLeft = 50;
+  const tableWidth = 512;
+  const rowHeight = 24;
+  const headerY = 616;
+  const rowsPerPage = 22;
+  const pages: AttemptRow[][] = [];
+
+  for (let index = 0; index < rows.length; index += rowsPerPage) {
+    pages.push(rows.slice(index, index + rowsPerPage));
+  }
+  if (pages.length === 0) pages.push([]);
+
+  const textAt = (x: number, y: number, value: unknown, size = 10, font = "F1") => (
+    `BT /${font} ${size} Tf ${x} ${y} Td (${escapePdfText(value)}) Tj ET`
+  );
+  const line = (x1: number, y1: number, x2: number, y2: number) => `${x1} ${y1} m ${x2} ${y2} l S`;
+  const rect = (x: number, y: number, width: number, height: number) => `${x} ${y} ${width} ${height} re S`;
+
+  const objects: string[] = [];
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
+  objects.push("");
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+
+  const pageRefs: string[] = [];
+  pages.forEach((pageRows, pageIndex) => {
+    const pageObjectNumber = objects.length + 1;
+    const contentObjectNumber = pageObjectNumber + 1;
+    pageRefs.push(`${pageObjectNumber} 0 R`);
+
+    const tableTop = headerY + rowHeight;
+    const tableBottom = headerY - (pageRows.length * rowHeight);
+    const commands = [
+      "0.10 0.12 0.16 RG",
+      "0.10 0.12 0.16 rg",
+      textAt(50, 744, `${quiz.title} - Results`, 18, "F2"),
+      "0.28 0.33 0.42 rg",
+      textAt(50, 722, `${quiz.subjectName || "General"}${quiz.className ? ` - ${quiz.className}` : ""}`, 10),
+      textAt(50, 706, `Total Marks: ${quiz.totalMarks}`, 10),
+      textAt(50, 690, `Generated: ${new Date().toLocaleString("en-GB")}`, 10),
+      textAt(500, 690, `Page ${pageIndex + 1} of ${pages.length}`, 9),
+      "0.86 0.90 0.95 RG",
+      "0.95 0.98 1 rg",
+      `${tableLeft} ${headerY} ${tableWidth} ${rowHeight} re f`,
+      "0.78 0.84 0.90 RG",
+      rect(tableLeft, tableBottom, tableWidth, tableTop - tableBottom),
+      line(tableLeft, headerY, tableLeft + tableWidth, headerY),
+      ...columns.slice(1).map((column) => line(column.x, tableBottom, column.x, tableTop)),
+      "0.10 0.12 0.16 rg",
+      ...columns.map((column) => textAt(column.x + 8, headerY + 8, column.label, 9, "F2"))
+    ];
+
+    pageRows.forEach((row, rowIndex) => {
+      const y = headerY - ((rowIndex + 1) * rowHeight);
+      const values = [
+        truncatePdfText(row.participantName, columns[0].max),
+        truncatePdfText(row.rollNumber, columns[1].max),
+        truncatePdfText(row.className, columns[2].max),
+        truncatePdfText(quiz.totalMarks, columns[3].max),
+        truncatePdfText(row.totalScore ?? "", columns[4].max)
+      ];
+
+      commands.push("0.91 0.94 0.97 RG");
+      commands.push(line(tableLeft, y, tableLeft + tableWidth, y));
+      commands.push("0.15 0.18 0.25 rg");
+      values.forEach((value, columnIndex) => {
+        commands.push(textAt(columns[columnIndex].x + 8, y + 8, value, 9));
+      });
+    });
+
+    if (pageRows.length === 0) {
+      commands.push("0.45 0.50 0.58 rg");
+      commands.push(textAt(tableLeft + 8, headerY - 18, "No student results recorded yet.", 10));
+    }
+
+    const content = commands.join("\n");
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`);
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+
+  objects[1] = `<< /Type /Pages /Kids [${pageRefs.join(" ")}] /Count ${pageRefs.length} >>`;
+
+  const offsets = [0];
+  let pdf = "%PDF-1.4\n";
+  objects.forEach((object, index) => {
+    offsets[index + 1] = pdf.length;
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+};
+
 const printQuiz = async (quiz: Quiz) => {
   const fullQuiz = quiz.questions
     ? quiz
@@ -179,9 +322,7 @@ const printQuiz = async (quiz: Quiz) => {
   ${questions.map((question, index) => `
     <section class="question">
       <div class="question-title">Q${index + 1}. ${escapeHtml(question.questionText)} (${escapeHtml(question.marks)} mark${Number(question.marks) === 1 ? "" : "s"})</div>
-      ${question.type === "SHORT"
-        ? "<div class=\"answer-lines\"><div class=\"line\"></div><div class=\"line\"></div><div class=\"line\"></div></div>"
-        : `<div class="options">${(question.options || []).map((option, optionIndex) => `<div class="option"><span class="box"></span><span>${String.fromCharCode(65 + optionIndex)}. ${escapeHtml(option)}</span></div>`).join("")}</div>`}
+      <div class="options">${(question.options || []).map((option, optionIndex) => `<div class="option"><span class="box"></span><span>${String.fromCharCode(65 + optionIndex)}. ${escapeHtml(option)}</span></div>`).join("")}</div>
     </section>
   `).join("")}
 </body>
@@ -265,7 +406,7 @@ function QuizModal({
         method: "POST",
         body: formData
       });
-      setQuestions((current) => [...current, ...response.data]);
+      setQuestions((current) => addQuestionsAfterPlaceholder(current, response.data));
     } catch (error) {
       alert(error instanceof Error ? error.message : "Import failed");
     } finally {
@@ -311,7 +452,7 @@ function QuizModal({
       const unique = response.data.questions.filter((question) => (
         !existingTexts.has(question.questionText.trim().toLowerCase())
       ));
-      setQuestions((current) => [...current, ...unique]);
+      setQuestions((current) => addQuestionsAfterPlaceholder(current, unique));
       setAiOpen(false);
     } catch (error) {
       alert(error instanceof Error ? error.message : "AI generation failed");
@@ -509,7 +650,6 @@ function QuizModal({
                       <option value="BALANCED">Balanced</option>
                       <option value="MCQ_ONLY">MCQ only</option>
                       <option value="MCQ_TRUE_FALSE">MCQ + true/false</option>
-                      <option value="ALL_TYPES">All types</option>
                     </select>
                   </label>
                   <label>
@@ -600,7 +740,7 @@ function QuestionEditor({
           <select value={question.type} onChange={(event) => switchType(event.target.value as QuestionType)}>
             <option value="MCQ">Multiple choice</option>
             <option value="TRUE_FALSE">True/false</option>
-            <option value="SHORT">Short answer</option>
+
           </select>
         </label>
         <label>
@@ -669,16 +809,6 @@ function QuestionEditor({
           </label>
         </div>
       )}
-
-      {question.type === "SHORT" && (
-        <label style={{ marginTop: 12 }}>
-          Expected answer
-          <input
-            value={String(question.correctAnswer || "")}
-            onChange={(event) => set("correctAnswer", event.target.value)}
-          />
-        </label>
-      )}
     </section>
   );
 }
@@ -736,13 +866,29 @@ function AttemptsModal({
     }
   };
 
+  const downloadResultsSheet = () => {
+    if (rows.length === 0) {
+      alert("No student results to download yet.");
+      return;
+    }
+
+    const blob = buildResultsPdf(quiz, rows);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filenamePart(quiz.title)}-results.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (selectedAttemptId) {
     return (
       <AttemptDetailModal
         attemptId={selectedAttemptId}
         onBack={() => setSelectedAttemptId(null)}
         onClose={onClose}
-        onChanged={loadRows}
       />
     );
   }
@@ -755,9 +901,14 @@ function AttemptsModal({
             <h2>{quiz.title}</h2>
             <p className="muted">{rows.length} recorded {quiz.deliveryMode === "OFFLINE" ? "marks" : "attempts"}</p>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            <X size={18} />
-          </button>
+          <div className="actions-row">
+            <button type="button" className="secondary-button" onClick={downloadResultsSheet} disabled={loading || rows.length === 0}>
+              <Download size={16} /> Download PDF
+            </button>
+            <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="modal-body">
@@ -814,7 +965,7 @@ function AttemptsModal({
                     <span className="status-pill mode-online">
                       {row.totalScore ?? "-"} / {quiz.totalMarks}
                     </span>
-                    {row.manualPending > 0 && <span className="status-pill status-draft">{row.manualPending} pending</span>}
+
                     {quiz.deliveryMode === "ONLINE" && <span className="muted">{row.violations} violations</span>}
                     <button type="button" className="secondary-button" onClick={() => setSelectedAttemptId(row.id)}>
                       <Eye size={16} /> View
@@ -834,30 +985,19 @@ function AttemptDetailModal({
   attemptId,
   onBack,
   onClose,
-  onChanged
 }: {
   attemptId: string;
   onBack: () => void;
   onClose: () => void;
-  onChanged: () => void;
 }) {
   const [detail, setDetail] = useState<AttemptDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [drafts, setDrafts] = useState<Record<string, { marks: string; feedback: string }>>({});
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiJson<{ data: AttemptDetail }>(`/api/teacher/attempts/${attemptId}`);
       setDetail(response.data);
-      const nextDrafts: Record<string, { marks: string; feedback: string }> = {};
-      response.data.answers.forEach((answer) => {
-        nextDrafts[answer.id] = {
-          marks: String(answer.marksAwarded ?? 0),
-          feedback: answer.feedback || ""
-        };
-      });
-      setDrafts(nextDrafts);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to load attempt");
     } finally {
@@ -869,22 +1009,6 @@ function AttemptDetailModal({
     loadDetail();
   }, [loadDetail]);
 
-  const saveGrade = async (answerId: string) => {
-    const draft = drafts[answerId];
-    try {
-      await apiJson(`/api/teacher/answers/${answerId}/grade`, {
-        method: "PUT",
-        body: JSON.stringify({
-          marksAwarded: Number(draft?.marks || 0),
-          feedback: draft?.feedback || ""
-        })
-      });
-      await loadDetail();
-      onChanged();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to save grade");
-    }
-  };
 
   return (
     <div className="modal-backdrop">
@@ -909,9 +1033,6 @@ function AttemptDetailModal({
           ) : (
             detail.quiz.questions.map((question, index) => {
               const answer = detail.answers.find((item) => item.questionId === question.id);
-              const answerText = answer?.answer === null || answer?.answer === undefined || answer?.answer === ""
-                ? ""
-                : String(answer.answer);
 
               return (
                 <section key={question.id || index} className="question-card">
@@ -921,57 +1042,19 @@ function AttemptDetailModal({
                   </div>
                   <p>{question.questionText}</p>
 
-                  {question.type !== "SHORT" ? (
-                    <div className="options-grid">
-                      {question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className={`choice ${Number(answer?.answer) === optionIndex ? "selected" : ""}`}>
-                          <span />
-                          <strong>{String.fromCharCode(65 + optionIndex)}</strong>
-                          <span>
-                            {option}
-                            {Number(question.correctAnswer) === optionIndex ? " (correct)" : ""}
-                            {Number(answer?.answer) === optionIndex ? " (selected)" : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="form-stack">
-                      <p className="notice">Expected: {String(question.correctAnswer)}</p>
-                      <p className="result-card">Answer: {answerText || "No answer"}</p>
-                      {answer && answerText && (
-                        <div className="form-grid">
-                          <label>
-                            Marks
-                            <input
-                              type="number"
-                              min="0"
-                              max={question.marks}
-                              step="0.5"
-                              value={drafts[answer.id]?.marks || ""}
-                              onChange={(event) => setDrafts((current) => ({
-                                ...current,
-                                [answer.id]: { ...(current[answer.id] || { feedback: "" }), marks: event.target.value }
-                              }))}
-                            />
-                          </label>
-                          <label>
-                            Feedback
-                            <input
-                              value={drafts[answer.id]?.feedback || ""}
-                              onChange={(event) => setDrafts((current) => ({
-                                ...current,
-                                [answer.id]: { ...(current[answer.id] || { marks: "0" }), feedback: event.target.value }
-                              }))}
-                            />
-                          </label>
-                          <button type="button" className="primary-button" onClick={() => saveGrade(answer.id)}>
-                            <Save size={16} /> Save grade
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="options-grid">
+                    {question.options.map((option, optionIndex) => (
+                      <div key={optionIndex} className={`choice ${Number(answer?.answer) === optionIndex ? "selected" : ""}`}>
+                        <span />
+                        <strong>{String.fromCharCode(65 + optionIndex)}</strong>
+                        <span>
+                          {option}
+                          {Number(question.correctAnswer) === optionIndex ? " (correct)" : ""}
+                          {Number(answer?.answer) === optionIndex ? " (selected)" : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </section>
               );
             })

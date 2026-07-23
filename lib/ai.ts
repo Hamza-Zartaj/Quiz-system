@@ -3,11 +3,11 @@ import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 import { validateQuestions } from "@/lib/quiz";
 
-const MIXES = new Set(["BALANCED", "MCQ_ONLY", "MCQ_TRUE_FALSE", "ALL_TYPES"]);
+const MIXES = new Set(["BALANCED", "MCQ_ONLY", "MCQ_TRUE_FALSE"]);
 const DIFFICULTIES = new Set(["EASY", "MEDIUM", "HARD", "MIXED"]);
 
 const questionSchema = z.object({
-  type: z.enum(["MCQ", "TRUE_FALSE", "SHORT"]),
+  type: z.enum(["MCQ", "TRUE_FALSE"]),
   questionText: z.string(),
   options: z.array(z.string()),
   correctAnswer: z.union([z.string(), z.number()]),
@@ -53,10 +53,9 @@ export const validateAIQuizRequest = (body: Record<string, unknown>) => {
 };
 
 const mixInstruction: Record<string, string> = {
-  BALANCED: "Use mostly MCQs, with some true/false and short-answer questions where appropriate.",
+  BALANCED: "Use mostly MCQs, with some true/false questions where appropriate.",
   MCQ_ONLY: "Generate only MCQ questions.",
-  MCQ_TRUE_FALSE: "Generate a useful mix of MCQ and TRUE_FALSE questions. Do not generate SHORT questions.",
-  ALL_TYPES: "Use MCQ, TRUE_FALSE, and SHORT questions in a balanced way."
+  MCQ_TRUE_FALSE: "Generate a useful mix of MCQ and TRUE_FALSE questions."
 };
 
 export const generateQuizQuestions = async ({
@@ -101,11 +100,10 @@ export const generateQuizQuestions = async ({
         content: [
           "You create accurate teacher-ready quiz questions.",
           "Return exactly the requested number of questions using the supplied schema.",
+          "Only generate MCQ and TRUE_FALSE questions.",
           "MCQs must have exactly four distinct plausible options and one unambiguous answer.",
           "TRUE_FALSE options must be exactly [\"True\", \"False\"].",
           "For MCQ and TRUE_FALSE, correctAnswer must be the zero-based option index.",
-          "SHORT correctAnswer must be a concise grading reference.",
-          "SHORT options must be an empty array.",
           "Avoid vague wording, repeated questions, answer hints, and all/none-of-the-above choices."
         ].join(" ")
       },

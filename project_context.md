@@ -9,7 +9,7 @@ Build a standalone quiz system for teachers who only need quiz creation, deliver
 Reviewed the CampusOne quiz system before creating this folder:
 
 - Backend quiz controller, attempt controller, AI generation service, quiz lifecycle service, Excel importer, validation helper, quiz routes, Prisma quiz models, and quiz migrations.
-- Teacher quiz UI for create/edit, AI generation, Excel import, print view, online/offline mode, roster, offline marks, and manual grading.
+- Teacher quiz UI for create/edit, AI generation, Excel import, print view, online/offline mode, roster, and offline marks.
 - Student quiz UI for pre-start confirmation, timed attempt, autosave, anti-cheat events, submission, and result review.
 
 ## Implemented In This Standalone Folder
@@ -23,8 +23,7 @@ Reviewed the CampusOne quiz system before creating this folder:
 - Public participant identity: name, roll number, and class.
 - Stable per-attempt question order with optional shuffle.
 - Autosave, submit, timeout finalization, and violation logging endpoints.
-- Automatic grading for MCQ and true/false questions.
-- Pending manual grading flow for short answers.
+- Automatic final grading for MCQ and true/false questions.
 - Offline quiz print support and offline mark recording.
 - Excel/CSV question import and downloadable sample workbook.
 - OpenAI-backed AI question generation with difficulty, type mix, and duplicate-avoidance context.

@@ -28,7 +28,7 @@ type PublicMeta = {
 
 type PublicQuestion = {
   id: string;
-  type: "MCQ" | "TRUE_FALSE" | "SHORT";
+  type: "MCQ" | "TRUE_FALSE";
   questionText: string;
   options: string[];
   marks: number;
@@ -60,8 +60,6 @@ type ResultData = {
   totalScore: number;
   totalMarks: number;
   violations: number;
-  gradingStatus: "PENDING_MANUAL" | "FINAL";
-  manualPending: number;
   allowReview: boolean;
   reviewAvailableAt?: string | null;
   questions?: (PublicQuestion & {
@@ -319,29 +317,20 @@ function QuizRunner({
           </div>
           <p style={{ fontSize: 18, lineHeight: 1.6 }}>{question.questionText}</p>
 
-          {question.type !== "SHORT" ? (
-            <div>
-              {question.options.map((option, index) => (
-                <label key={index} className={`choice ${answers[question.id] === index ? "selected" : ""}`}>
-                  <input
-                    type="radio"
-                    name={question.id}
-                    checked={answers[question.id] === index}
-                    onChange={() => saveAnswer(question.id, index)}
-                  />
-                  <strong>{String.fromCharCode(65 + index)}</strong>
-                  <span>{option}</span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <textarea
-              rows={8}
-              value={String(answers[question.id] || "")}
-              onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))}
-              onBlur={(event) => saveAnswer(question.id, event.target.value)}
-            />
-          )}
+          <div>
+            {question.options.map((option, index) => (
+              <label key={index} className={`choice ${answers[question.id] === index ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name={question.id}
+                  checked={answers[question.id] === index}
+                  onChange={() => saveAnswer(question.id, index)}
+                />
+                <strong>{String.fromCharCode(65 + index)}</strong>
+                <span>{option}</span>
+              </label>
+            ))}
+          </div>
 
           <div className="modal-footer" style={{ paddingLeft: 0, paddingRight: 0 }}>
             <button
@@ -407,9 +396,6 @@ function ResultScreen({
           <strong style={{ fontSize: 42 }}>{result.totalScore} / {result.totalMarks}</strong>
           <p className="muted">{pct}%</p>
         </div>
-        {result.gradingStatus === "PENDING_MANUAL" && (
-          <p className="notice">{result.manualPending} short answer(s) are awaiting teacher grading.</p>
-        )}
         {result.violations > 0 && (
           <p className="notice"><AlertTriangle size={16} /> {result.violations} violation(s) recorded.</p>
         )}
@@ -426,25 +412,17 @@ function ResultScreen({
                   <span className="status-pill mode-online">{question.marksAwarded} / {question.marks}</span>
                 </div>
                 <p>{question.questionText}</p>
-                {question.type !== "SHORT" ? (
-                  question.options.map((option, optionIndex) => (
-                    <div key={optionIndex} className={`choice ${Number(question.yourAnswer) === optionIndex ? "selected" : ""}`}>
-                      <span />
-                      <strong>{String.fromCharCode(65 + optionIndex)}</strong>
-                      <span>
-                        {option}
-                        {Number(question.correctAnswer) === optionIndex ? " (correct)" : ""}
-                        {Number(question.yourAnswer) === optionIndex ? " (your answer)" : ""}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="form-stack">
-                    <p className="result-card">Your answer: {String(question.yourAnswer || "No answer")}</p>
-                    <p className="notice">Expected: {String(question.correctAnswer)}</p>
-                    {question.feedback && <p className="notice">Feedback: {question.feedback}</p>}
+                {question.options.map((option, optionIndex) => (
+                  <div key={optionIndex} className={`choice ${Number(question.yourAnswer) === optionIndex ? "selected" : ""}`}>
+                    <span />
+                    <strong>{String.fromCharCode(65 + optionIndex)}</strong>
+                    <span>
+                      {option}
+                      {Number(question.correctAnswer) === optionIndex ? " (correct)" : ""}
+                      {Number(question.yourAnswer) === optionIndex ? " (your answer)" : ""}
+                    </span>
                   </div>
-                )}
+                ))}
               </section>
             ))}
           </div>

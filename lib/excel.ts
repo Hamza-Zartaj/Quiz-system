@@ -44,7 +44,7 @@ export const parseQuizQuestionsWorkbook = (buffer: Buffer) => {
         }
         correctAnswer = ["true", "1", "t"].includes(value) ? 0 : 1;
       } else {
-        correctAnswer = String(correctRaw ?? "").trim();
+        throw new Error(`Question ${index + 1} has an invalid type. Use MCQ or TRUE_FALSE.`);
       }
 
       return {
@@ -81,17 +81,8 @@ export const createQuizImportTemplate = () => {
       option4: "",
       correctAnswer: "TRUE",
       marks: 1
-    },
-    {
-      type: "SHORT",
-      questionText: "What does DBMS stand for?",
-      option1: "",
-      option2: "",
-      option3: "",
-      option4: "",
-      correctAnswer: "Database Management System",
-      marks: 2
     }
+
   ];
 
   const questionSheet = xlsx.utils.json_to_sheet(exampleRows, { header: QUIZ_EXCEL_COLUMNS });
@@ -111,12 +102,11 @@ export const createQuizImportTemplate = () => {
     ["Keep the column names in the Questions sheet unchanged. Delete the example rows before entering your own questions."],
     [],
     ["Column", "Accepted value"],
-    ["type", "MCQ, TRUE_FALSE (or TF), or SHORT"],
+    ["type", "MCQ or TRUE_FALSE (TF is also accepted)"],
     ["questionText", "Required question text"],
-    ["option1-option4", "Required for MCQ. Leave blank for TRUE_FALSE and SHORT."],
+    ["option1-option4", "Required for MCQ. Leave blank for TRUE_FALSE."],
     ["correctAnswer (MCQ)", "Use A, B, C, or D. Letters are recommended."],
     ["correctAnswer (TRUE_FALSE)", "Use TRUE or FALSE"],
-    ["correctAnswer (SHORT)", "Expected answer/reference text"],
     ["marks", "A number greater than 0"]
   ];
   const instructionSheet = xlsx.utils.aoa_to_sheet(instructions);

@@ -4,7 +4,7 @@ import { hashToken } from "@/lib/quiz";
 
 type QuestionRow = {
   id: string;
-  type: "MCQ" | "TRUE_FALSE" | "SHORT";
+  type: "MCQ" | "TRUE_FALSE";
   options: unknown;
   correct_answer: unknown;
   marks: number | string;
@@ -45,19 +45,8 @@ type AnswerRow = {
   question?: QuestionRow;
 };
 
-type FinalizedAttempt = AttemptRow & {
-  gradingStatus?: "PENDING_MANUAL" | "FINAL";
-  manualPending?: number;
-};
-
 export const normalizeAnswer = (question: QuestionRow, answer: unknown) => {
   if (answer === null || answer === undefined || answer === "") return null;
-
-  if (question.type === "SHORT") {
-    const value = String(answer).trim();
-    if (value.length > 10000) throw new Error("Short answer exceeds the 10,000 character limit");
-    return value || null;
-  }
 
   const value = Number(answer);
   const options = Array.isArray(question.options) ? question.options : [];
@@ -67,14 +56,7 @@ export const normalizeAnswer = (question: QuestionRow, answer: unknown) => {
   return value;
 };
 
-const hasShortAnswerText = (answer: unknown) => (
-  answer !== null &&
-  answer !== undefined &&
-  String(answer).trim() !== ""
-);
-
 const autoGrade = (question: QuestionRow, submittedAnswer: unknown) => {
-  if (question.type === "SHORT") return { is_correct: null, marks_awarded: 0 };
   if (submittedAnswer === null || submittedAnswer === undefined) {
     return { is_correct: false, marks_awarded: 0 };
   }
@@ -137,7 +119,7 @@ export const finalizeAttempt = async (
   status: "SUBMITTED" | "AUTO_SUBMITTED",
   extra: Record<string, unknown> = {},
   finalAnswers: { questionId: string; answer: unknown }[] = []
-): Promise<FinalizedAttempt> => {
+): Promise<AttemptRow> => {
   const { data, error } = await supabaseAdmin()
     .from("quiz_attempts")
     .select(`
@@ -182,39 +164,9 @@ export const finalizeAttempt = async (
   }
 
   let autoScore = 0;
-  let manualPending = 0;
-
   for (const question of questions) {
     const savedAnswer = answersByQuestion.get(question.id);
 
-    if (question.type === "SHORT") {
-      if (hasShortAnswerText(savedAnswer?.answer)) {
-        manualPending += 1;
-        await supabaseAdmin()
-          .from("quiz_answers")
-          .update({ is_correct: null, marks_awarded: 0 })
-          .eq("id", savedAnswer!.id);
-        continue;
-      }
-
-      if (savedAnswer) {
-        await supabaseAdmin()
-          .from("quiz_answers")
-          .update({ is_correct: false, marks_awarded: 0 })
-          .eq("id", savedAnswer.id);
-      } else {
-        await supabaseAdmin()
-          .from("quiz_answers")
-          .insert({
-            attempt_id: attemptId,
-            question_id: question.id,
-            answer: null,
-            is_correct: false,
-            marks_awarded: 0
-          });
-      }
-      continue;
-    }
 
     const grade = autoGrade(question, savedAnswer?.answer);
     autoScore += Number(grade.marks_awarded || 0);
@@ -252,49 +204,5 @@ export const finalizeAttempt = async (
 
   if (updateError) throw updateError;
 
-  return {
-    ...(updated as unknown as AttemptRow),
-    gradingStatus: manualPending > 0 ? "PENDING_MANUAL" : "FINAL",
-    manualPending
-  };
-};
-
-export const recomputeAttemptScores = async (attemptId: string) => {
-  const { data: answers, error } = await supabaseAdmin()
-    .from("quiz_answers")
-    .select("*, question:quiz_questions(type, marks)")
-    .eq("attempt_id", attemptId);
-
-  if (error) throw error;
-
-  let autoScore = 0;
-  let manualScore = 0;
-  let manualPending = 0;
-
-  for (const answer of (answers || []) as unknown as AnswerRow[]) {
-    if (answer.question?.type === "SHORT") {
-      if (answer.is_correct === null && hasShortAnswerText(answer.answer)) {
-        manualPending += 1;
-      } else {
-        manualScore += Number(answer.marks_awarded || 0);
-      }
-      continue;
-    }
-    autoScore += Number(answer.marks_awarded || 0);
-  }
-
-  const totalScore = autoScore + manualScore;
-  const { data: updated, error: updateError } = await supabaseAdmin()
-    .from("quiz_attempts")
-    .update({
-      auto_graded_score: autoScore,
-      manual_score: manualScore,
-      total_score: totalScore
-    })
-    .eq("id", attemptId)
-    .select()
-    .single();
-
-  if (updateError) throw updateError;
-  return { attempt: updated, totalScore, manualPending };
+  return updated as unknown as AttemptRow;
 };

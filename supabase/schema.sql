@@ -2,7 +2,7 @@ create extension if not exists pgcrypto;
 
 create type quiz_status as enum ('DRAFT', 'PUBLISHED', 'CLOSED');
 create type quiz_delivery_mode as enum ('ONLINE', 'OFFLINE');
-create type quiz_question_type as enum ('MCQ', 'TRUE_FALSE', 'SHORT');
+create type quiz_question_type as enum ('MCQ', 'TRUE_FALSE');
 create type quiz_attempt_status as enum ('IN_PROGRESS', 'SUBMITTED', 'AUTO_SUBMITTED', 'OFFLINE_RECORDED');
 
 create table public.profiles (

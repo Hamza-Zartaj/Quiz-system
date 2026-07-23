@@ -2,9 +2,9 @@ import crypto from "node:crypto";
 
 export const QUIZ_STATUSES = new Set(["DRAFT", "PUBLISHED", "CLOSED"]);
 export const DELIVERY_MODES = new Set(["ONLINE", "OFFLINE"]);
-export const QUESTION_TYPES = new Set(["MCQ", "TRUE_FALSE", "SHORT"]);
+export const QUESTION_TYPES = new Set(["MCQ", "TRUE_FALSE"]);
 
-export type QuestionType = "MCQ" | "TRUE_FALSE" | "SHORT";
+export type QuestionType = "MCQ" | "TRUE_FALSE";
 export type QuizStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 export type DeliveryMode = "ONLINE" | "OFFLINE";
 
@@ -12,7 +12,7 @@ export type NormalizedQuestion = {
   type: QuestionType;
   questionText: string;
   options: string[];
-  correctAnswer: number | string;
+  correctAnswer: number;
   marks: number;
   orderIndex: number;
 };
@@ -104,7 +104,7 @@ export const validateQuestions = (
       if (!Number.isInteger(correctAnswer) || correctAnswer < 0 || correctAnswer >= options.length) {
         throw new Error(`${label} has an invalid correct-answer index`);
       }
-    } else if (type === "TRUE_FALSE") {
+    } else {
       options = ["True", "False"];
       const value = String(correctAnswer ?? "").toLowerCase().trim();
       if (["true", "t", "1"].includes(value)) correctAnswer = 0;
@@ -113,17 +113,13 @@ export const validateQuestions = (
       if (correctAnswer !== 0 && correctAnswer !== 1) {
         throw new Error(`${label} must use True or False as its correct answer`);
       }
-    } else {
-      options = [];
-      correctAnswer = String(correctAnswer ?? "").trim();
-      if (!correctAnswer) throw new Error(`${label} requires an expected answer`);
     }
 
     return {
       type,
       questionText: text,
       options,
-      correctAnswer: correctAnswer as number | string,
+      correctAnswer: correctAnswer as number,
       marks,
       orderIndex: index
     };
